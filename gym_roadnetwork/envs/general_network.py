@@ -141,7 +141,7 @@ class GeneralNetwork(gym.Env):
         self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, np.inf, 1)) # infinite capacity queue in the beginning
         self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 5, 1))
         self.cells.append(Cell(75*kmpermiles, 1.25*kmpermiles*1000*quantization, 2, 2))
-        self.cells.append(Cell(75*kmpermiles, 1.25*kmpermiles*1000*quantization, 3, 2))
+        self.cells.append(Cell(75*kmpermiles, 1.25*kmpermiles*1000*quantization, 1, 2))
         self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 3, 1))
         self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 1))
         self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 1))
@@ -329,10 +329,11 @@ class GeneralNetwork(gym.Env):
             # back to mu
             if c_id > 0:
                 mu_denominator = self.cells[c_id].state
+                downstream_path_ids = np.where([(c_id in path) for path in self.paths])[0]
                 for type in range(2):
                     if np.isclose(mu_denominator[type], 0):
-                        self.cells[c_id].mu[:,type] = 1.
-                        self.cells[c_id].mu[:,type] = self.cells[c_id].mu[:,type] / self.cells[c_id].mu[:,type].sum()
+                        self.cells[c_id].mu[:,type] = 0.
+                        self.cells[c_id].mu[downstream_path_ids,type] = 1. / len(downstream_path_ids)
                     else:
                         self.cells[c_id].mu[:,type] = mu_numerator[:,type] / mu_denominator[type]
             

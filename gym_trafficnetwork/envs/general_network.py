@@ -125,7 +125,55 @@ class GeneralNetwork(gym.Env):
         self.seed(0) # just in case we forget seeding
         self.initialize()
         assert np.isinf(self.cells[0].cap) and self.cells[0].cap > 0 # make sure cell 0 is the queue
+    
+    def set(self, property, value):
+        if property.lower() == 'sim_duration':
+            assert value >= 0
+            self.sim_duration = value*secperhr
+        elif property.lower() == 'start_empty':
+            self.start_empty = value
+        elif property.lower() == 'start_from_equilibrium':
+            self.start_from_equilibrium = value
+        elif property.lower() == 'init_learn_rate':
+            assert value >= 0
+            self.init_learn_rate = value
+        elif property.lower() == 'constant_learn_rate':
+            self.constant_learn_rate = value
+        elif property.lower() == 'demand':
+            assert np.min(value) >= 0
+            self.demand = value
+        elif property.lower() == 'accident_param':
+            assert value >= 0
+            self.accident_param = value
+        elif property.lower() == 'demand_noise_std':
+            assert np.min(value) >= 0
+            self.demand_noise_std = value
+        else:
+            import warnings
+            warnings.warn('Warning: No such property is defined. No action taken. List of properties: sim_duration, start_empty, start_from_equilibrium, p, init_learn_rate, constant_learn_rate, demand, accident_param')
+        self.initialize()
         
+    def get(self, property):
+        if property.lower() == 'sim_duration':
+            return self.sim_duration
+        elif property.lower() == 'start_empty':
+            return self.start_empty
+        elif property.lower() == 'start_from_equilibrium':
+            return self.start_from_equilibrium
+        elif property.lower() == 'init_learn_rate':
+            return self.init_learn_rate
+        elif property.lower() == 'constant_learn_rate':
+            return self.constant_learn_rate
+        elif property.lower() == 'demand':
+            return self.demand
+        elif property.lower() == 'accident_param':
+            return self.accident_param
+        elif property.lower() == 'demand_noise_std':
+            return self.demand_noise_std
+        else:
+            import warnings
+            warnings.warn('Warning: No such property is defined. No output returned. List of properties: sim_duration, start_empty, start_from_equilibrium, p, init_learn_rate, constant_learn_rate, demand, accident_param')
+    
     def downstream_of(self, cell_id):
         junc = np.array(self.junctions)
         return junc[np.argwhere([cell_id in x for x in junc[:,0]])[0,0]][1]
@@ -139,27 +187,28 @@ class GeneralNetwork(gym.Env):
         # Create all cells independently
         self.cells = []
         self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, np.inf, 1)) # infinite capacity queue in the beginning
-        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 5, 1))
         self.cells.append(Cell(75*kmpermiles, 1.25*kmpermiles*1000*quantization, 2, 2))
-        self.cells.append(Cell(75*kmpermiles, 1.25*kmpermiles*1000*quantization, 1, 2))
-        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 3, 1))
-        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 1))
-        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 1))
-        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 1))
-        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 1))
+        self.cells.append(Cell(75*kmpermiles, 1.25*kmpermiles*1000*quantization, 2, 2))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 3, 3))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 1, 1))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 3, 3))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 2))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 3, 3))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 1, 1))
+        self.cells.append(Cell(60*kmpermiles, 1*kmpermiles*1000*quantization, 2, 2))
         self.num_cells = len(self.cells)
 
         # Connect the cells via junctions: [[a],[b,c]] means cell a feeds cells b and c
         self.junctions = []
         self.junctions.append([[],[0]]) # welcome to the network (almost), please wait in the queue first
-        self.junctions.append([[0],[1]])
-        self.junctions.append([[1],[2,4]])
-        self.junctions.append([[2,5],[3]])
-        self.junctions.append([[4],[5,6]])
-        self.junctions.append([[3],[]]) # goodbye!
-        self.junctions.append([[6],[7]])
-        self.junctions.append([[7],[8]])
-        self.junctions.append([[8],[]]) # goodbye!
+        self.junctions.append([[0],[1,3]])
+        self.junctions.append([[1,4],[2]])
+        self.junctions.append([[2],[]]) # goodbye!
+        self.junctions.append([[3],[4,5]])
+        self.junctions.append([[5],[6,7]])
+        self.junctions.append([[6],[8]])
+        self.junctions.append([[7,8],[9]])
+        self.junctions.append([[9],[]]) # goodbye!
         
         # Let's create an order of cells such that a downstream cell always comes before the upstream ones -- will be useful later
         cells_processed = [False]*len(self.cells)
@@ -234,7 +283,7 @@ class GeneralNetwork(gym.Env):
                 self.go_to_equilibrium(self.T_init)
                 
         self.step_count = 0
-        self.last_total_num_of_cars = np.sum([cell.n for cell in self.cells])
+        self.last_total_num_of_cars = 0
 
         return self._get_obs()
         

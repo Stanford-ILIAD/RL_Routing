@@ -1,17 +1,17 @@
 import gym
-import gym_roadnetwork
+import gym_trafficnetwork
 import numpy as np
 
-env = gym.make('RoadNetwork-v0')
+env = gym.make('GeneralNetwork-v0')
 env.set('sim_duration', 6.0) # hours
 env.set('start_empty', False)
 env.set('start_from_equilibrium', False)
-env.set('P', 3)
+#env.set('P', 3) # only for ParallelNetwork
 env.set('init_learn_rate', 0.5)
 env.set('constant_learn_rate', True)
-env.set('accident_param', 0.6) # expected number of accidents in 1 hour
-env.set('demand', [1.993974,2.990961]) # human-driven and autonomous cars per second, respectively
-env.set('demand_noise_std', [0.1993974,0.2990961]) # human-driven and autonomous cars per second, respectively
+env.set('accident_param', 0.0) # expected number of accidents in 1 hour
+env.set('demand', [1.0,1.5]) # human-driven and autonomous cars per second, respectively
+env.set('demand_noise_std', [0.1,0.15]) # human-driven and autonomous cars per second, respectively
 env.seed(1909) # Use seed 1909 for the results shown in Fig. 6 with the above default parameters
 print('Environment is set!')
 
@@ -21,7 +21,7 @@ o = env.reset() # reset is compulsory, don't assume the constructor calls it.
 r_vals = []
 o_vals.append(o)
 d = False
-aut_distribution = np.array([1.0/env.num_roads]*env.num_roads)
+aut_distribution = np.array([1.0/env.num_paths]*env.num_paths)
 n_t_a = env.init_learn_rate
 t = 0
 while not d:

@@ -217,13 +217,13 @@ class Road:
 		return [seed]
 
 
-# in RoadNetwork (unlike in Road), all densities are in vehicles per meter. this allows us to normalize observations
-class RoadNetwork(gym.Env):
+# in ParallelNetwork (unlike in Road), all densities are in vehicles per meter. this allows us to normalize observations
+class ParallelNetwork(gym.Env):
 	def __init__(self, P=3, start_empty=False, demand=[1.993974,2.990961], init_learn_rate=0.5, constant_learn_rate=True, sim_duration=5.0, start_from_equilibrium=False, accident_param=0.6, demand_noise_std=[1.993974/10,2.990961/10]):
 		self.sim_duration = sim_duration*secperhr
 		self.start_empty = start_empty
 		self.start_from_equilibrium = start_from_equilibrium and not start_empty
-		self.num_roads = P
+		self.num_paths = P
 		self.init_learn_rate = init_learn_rate
 		self.constant_learn_rate = constant_learn_rate
 		self.demand = demand
@@ -234,14 +234,14 @@ class RoadNetwork(gym.Env):
 	def initialize(self):
 		self.max_step_size = int(self.sim_duration/T)
 		
-		if self.num_roads >= 2:
+		if self.num_paths >= 2:
 			import gym_roadnetwork.envs.utils as utils
 			road_set = []
 			# Do not use [Cell]*3, because we need deep copy
 			
 			road_set.append(utils.two_partition_road(int(10/quantization),int(5/quantization),60*kmpermiles,1*kmpermiles*1000*quantization,3,2))
 			road_set.append(utils.two_partition_road(int(12/quantization),int(4/quantization),75*kmpermiles,1.25*kmpermiles*1000*quantization,4,3))
-			for _ in range(self.num_roads-2):
+			for _ in range(self.num_paths-2):
 				road_set.append(utils.two_partition_road(int(16/quantization),int(4/quantization),75*kmpermiles,1.25*kmpermiles*1000*quantization,4,3))
 			# expected number of accidents in one hour = self.accident_param
 			p = self.accident_param*(self.sim_duration/secperhr) / (float(self.max_step_size) * np.sum([cell.num_lanes for road in road_set for cell in road]))
@@ -253,10 +253,10 @@ class RoadNetwork(gym.Env):
 		self.step_count = 0
 
 		# start with uniform distribution
-		self.human_distribution = np.array([1.0/self.num_roads]*self.num_roads)
+		self.human_distribution = np.array([1.0/self.num_paths]*self.num_paths)
 		self.n_t_h = self.init_learn_rate # initial learning rate for humans
 
-		self.aut_distribution = np.array([1.0/self.num_roads]*self.num_roads)
+		self.aut_distribution = np.array([1.0/self.num_paths]*self.num_paths)
 		self.n_t_a = self.init_learn_rate # initial learning rate for autonomous users (for selfish policy)
 
 		self.T_init = self.max_step_size # if starting from an equilibrium, the number of time steps before beginning control
@@ -280,7 +280,7 @@ class RoadNetwork(gym.Env):
 		elif property.lower() == 'start_from_equilibrium':
 			self.start_from_equilibrium = value
 		elif property.lower() == 'p':
-			self.num_roads = value
+			self.num_paths = value
 		elif property.lower() == 'init_learn_rate':
 			assert(value >= 0)
 			self.init_learn_rate = value
@@ -308,7 +308,7 @@ class RoadNetwork(gym.Env):
 		elif property.lower() == 'start_from_equilibrium':
 			return self.start_from_equilibrium
 		elif property.lower() == 'p':
-			return self.num_roads
+			return self.num_paths
 		elif property.lower() == 'init_learn_rate':
 			return self.init_learn_rate
 		elif property.lower() == 'constant_learn_rate':
@@ -325,9 +325,9 @@ class RoadNetwork(gym.Env):
 		
 	@property
 	def action_space(self):
-		if self.num_roads == 2:
+		if self.num_paths == 2:
 			return spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)
-		return spaces.Box(low=0, high=1, shape=(self.num_roads,), dtype=np.float32)
+		return spaces.Box(low=0, high=1, shape=(self.num_paths,), dtype=np.float32)
 	
 	@property
 	def observation_space(self):
@@ -358,13 +358,13 @@ class RoadNetwork(gym.Env):
 		self.human_distribution, self.n_t_h = self.set_selfish_decision(self.human_distribution, self.n_t_h)
 	
 		action = np.clip(action, self.action_space.low, self.action_space.high)
-		if self.num_roads == 2:
+		if self.num_paths == 2:
 			action = np.append(action[0], 1-action[0])
 		else:
 			if np.all(action < MACHINE_PRECISION):
-				action = np.array([1.]*self.num_roads)
+				action = np.array([1.]*self.num_paths)
 			action = action / action.sum()
-		# At this point, action is a vector whose sum is 1 and that consists of num_roads entries
+		# At this point, action is a vector whose sum is 1 and that consists of num_paths entries
 		
 		# This part solves the optimization for 'allocating packets of vehicles in a queue'
 		w = np.array([])
@@ -373,7 +373,7 @@ class RoadNetwork(gym.Env):
 			w = np.append(w, elem.volume)
 			alpha = np.append(alpha, elem.aut_lev)
 			constraint_satisfied = True
-			for j in range(self.num_roads):
+			for j in range(self.num_paths):
 				constraint_satisfied = np.sum(w*alpha*action[j] + w*(1-alpha)*self.human_distribution[j]) <= self.roads[j].max_incoming()
 				if not constraint_satisfied:
 					break
@@ -381,8 +381,8 @@ class RoadNetwork(gym.Env):
 				w = w[:-1]
 				last_packet_alpha = alpha[-1]
 				alpha = alpha[:-1]
-				bound_on_last_w = [np.inf]*self.num_roads
-				for j in range(self.num_roads):
+				bound_on_last_w = [np.inf]*self.num_paths
+				for j in range(self.num_paths):
 					denom = last_packet_alpha*action[j] + (1-last_packet_alpha)*self.human_distribution[j]
 					if denom > MACHINE_PRECISION:
 						bound_on_last_w[j] = (self.roads[j].max_incoming() - np.sum(w*alpha*action[j] + w*(1-alpha)*self.human_distribution[j])) / denom
@@ -402,7 +402,7 @@ class RoadNetwork(gym.Env):
 		num_h = np.sum(w*(1-alpha))
 		num_a = np.sum(w*alpha)
 		value = 0
-		for i in range(self.num_roads):
+		for i in range(self.num_paths):
 			value += self.roads[i].step(num_h*self.human_distribution[i], num_a*action[i], no_accidents)
 
 		# count the vehicles in the queue
@@ -441,7 +441,7 @@ class RoadNetwork(gym.Env):
 		
 	def reset(self):
 		# reset preferences
-		self.human_distribution = np.array([1.0/self.num_roads]*self.num_roads)
+		self.human_distribution = np.array([1.0/self.num_paths]*self.num_paths)
 		self.n_t_h = self.init_learn_rate 
 		for road in self.roads:
 			road.reset()
@@ -460,7 +460,7 @@ class RoadNetwork(gym.Env):
 		
 
 	def go_to_equilibrium(self, T):
-		aut_distribution = np.array([1.0/self.num_roads]*self.num_roads)
+		aut_distribution = np.array([1.0/self.num_paths]*self.num_paths)
 		n_t_a = self.init_learn_rate
 		for _ in range(T):
 			aut_distribution, n_t_a = self.set_selfish_decision(aut_distribution, n_t_a)
@@ -478,14 +478,14 @@ class RoadNetwork(gym.Env):
 	# generic update function for either class of vehicle. pass in current distributions
 	# and learning rate and it returns the updated distribution and learning rate
 	def set_selfish_decision(self, dist, n_t):
-		assert( dist.size == self.num_roads )
+		assert( dist.size == self.num_paths )
 		assert( n_t >= 0 )
 
 		new_dist = dist*0
 		latencies = [road.measure_latency() for road in self.roads]
-		for p in range(self.num_roads):
+		for p in range(self.num_paths):
 			numerator = dist[p]*np.exp(-n_t*latencies[p])
-			denominator = np.sum([dist[q]*np.exp(-n_t*latencies[q]) for q in range(self.num_roads)])
+			denominator = np.sum([dist[q]*np.exp(-n_t*latencies[q]) for q in range(self.num_paths)])
 			new_dist[p] = numerator / denominator
 
 		# update learning rate

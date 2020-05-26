@@ -3,7 +3,7 @@ from baselines.common import tf_util as U
 from baselines import logger
 from baselines.common import set_global_seeds
 import gym
-import gym_roadnetwork
+import gym_trafficnetwork
 from baselines.bench import Monitor
 import numpy as np
 
@@ -39,7 +39,7 @@ def load_policy(env):
 	return pi
 
 
-env = gym.make('RoadNetwork-v0')
+env = gym.make('ParallelNetwork-v0')
 env.set('sim_duration', sim_duration) # hours
 env.set('start_empty', False)
 env.set('start_from_equilibrium', False)

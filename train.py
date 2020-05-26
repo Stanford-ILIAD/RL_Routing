@@ -3,7 +3,7 @@ from baselines.common import tf_util as U
 from baselines import logger
 from baselines.common import set_global_seeds
 import gym
-import gym_roadnetwork
+import gym_trafficnetwork
 from mpi4py import MPI
 from baselines.bench import Monitor
 
@@ -44,10 +44,10 @@ def train(env, seed, model_path=None):
 
 def main():
 	logger.configure()
-	filename = 'RoadNetworkP' + str(P) + 'Accidents' + str(1 if accident_param > 0 else 0)
+	filename = 'ParallelNetworkP' + str(P) + 'Accidents' + str(1 if accident_param > 0 else 0)
 	model_path = os.path.join('trained_models', filename)
 	
-	env = gym.make('RoadNetwork-v0')
+	env = gym.make('ParallelNetwork-v0')
 	env.set('sim_duration', sim_duration) # hours
 	env.set('start_empty', False)
 	env.set('start_from_equilibrium', False)

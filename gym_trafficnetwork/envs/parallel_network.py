@@ -195,7 +195,7 @@ class Road:
 		# inputs: low, high, size
 		for i in range(self.num_cells):
 			aut[i] = self.np_random.uniform(0.0, 1.0, 1)
-			dens[i] = self.np_random.uniform(0.0,self.cells[i].critdens(aut[i]), 1)
+			dens[i] = self.np_random.uniform(0.0,self.cells[i].critdens(aut[i])*1.2, 1)
 			self.cells[i].state[0] = dens[i]*self.cells[i].vf*(1 - aut[i])
 			self.cells[i].state[1] = dens[i]*self.cells[i].vf*aut[i]
 			self.cells[i].state[2] = self.cells[i].state[0] + self.cells[i].state[1]
@@ -266,7 +266,7 @@ class ParallelNetwork(gym.Env):
 		self.demand_a = demand[1]
 		
 		# use a queue to keep track of how many vehicles are waiting to join the network
-		self.q = deque()
+		self.q = Vehs(0., 0.)
 		
 		# reward will be the difference between two value functions (of consecutive timesteps)
 		self.last_value = 0
@@ -353,7 +353,8 @@ class ParallelNetwork(gym.Env):
 		
 		# first add the arriving vehicles to the back of the queue (append right, pop left)
 		if num_a + num_h > MACHINE_PRECISION:
-			self.q.append(Vehs(num_h+num_a, num_a/(num_h+num_a)))
+			new_volume = self.q.volume + num_h + num_a
+			self.q = Vehs(new_volume, (self.q.aut_lev*self.q.volume + num_a)/new_volume)
 		
 		self.human_distribution, self.n_t_h = self.set_selfish_decision(self.human_distribution, self.n_t_h)
 	
@@ -366,38 +367,28 @@ class ParallelNetwork(gym.Env):
 			action = action / action.sum()
 		# At this point, action is a vector whose sum is 1 and that consists of num_paths entries
 		
-		# This part solves the optimization for 'allocating packets of vehicles in a queue'
-		w = np.array([])
-		alpha = np.array([])
-		for elem in self.q:
-			w = np.append(w, elem.volume)
-			alpha = np.append(alpha, elem.aut_lev)
-			constraint_satisfied = True
-			for j in range(self.num_paths):
-				constraint_satisfied = np.sum(w*alpha*action[j] + w*(1-alpha)*self.human_distribution[j]) <= self.roads[j].max_incoming()
-				if not constraint_satisfied:
-					break
+		# This part used to solve the optimization for 'allocating packets of vehicles in a queue'
+		w = self.q.volume
+		alpha = self.q.aut_lev
+		for j in range(self.num_paths):
+			constraint_satisfied = w*alpha*action[j] + w*(1-alpha)*self.human_distribution[j] <= self.roads[j].max_incoming()
 			if not constraint_satisfied:
-				w = w[:-1]
-				last_packet_alpha = alpha[-1]
-				alpha = alpha[:-1]
-				bound_on_last_w = [np.inf]*self.num_paths
-				for j in range(self.num_paths):
-					denom = last_packet_alpha*action[j] + (1-last_packet_alpha)*self.human_distribution[j]
-					if denom > MACHINE_PRECISION:
-						bound_on_last_w[j] = (self.roads[j].max_incoming() - np.sum(w*alpha*action[j] + w*(1-alpha)*self.human_distribution[j])) / denom
-				w = np.append(w, np.min(bound_on_last_w))
-				alpha = np.append(alpha, last_packet_alpha)
 				break
-		
-		# pop from the queue
-		for _ in w:
-			vehs = self.q.popleft()
-		# add the diminished packet back to the queue
-		vehs.volume = vehs.volume - w[-1]
-		if vehs.volume > MACHINE_PRECISION:
-			self.q.appendleft(vehs)
-		
+		if not constraint_satisfied:
+			bound_on_w = [np.inf]*self.num_paths
+			for j in range(self.num_paths):
+				denom = alpha*action[j] + (1-alpha)*self.human_distribution[j]
+				if denom > MACHINE_PRECISION:
+					bound_on_w[j] = self.roads[j].max_incoming() / denom
+			w = np.min(bound_on_w)
+
+		# update the queue
+		new_volume = self.q.volume - w
+		if new_volume > MACHINE_PRECISION:
+			self.q = Vehs(new_volume, (self.q.aut_lev*self.q.volume - w*alpha)/new_volume)
+		else:
+			self.q = Vehs(0., 0.)
+
 
 		num_h = np.sum(w*(1-alpha))
 		num_a = np.sum(w*alpha)
@@ -406,10 +397,7 @@ class ParallelNetwork(gym.Env):
 			value += self.roads[i].step(num_h*self.human_distribution[i], num_a*action[i], no_accidents)
 
 		# count the vehicles in the queue
-		tot = 0.0
-		for elem in self.q:
-			tot += elem.volume
-		value -= tot
+		value -= self.q.volume
 		
 		# take the difference in the value function as the reward
 		reward = value - self.last_value
@@ -432,12 +420,7 @@ class ParallelNetwork(gym.Env):
 	
 	# returns the number of human-driven and autonomous vehicles in the queue
 	def get_queue_summary(self):
-		num_h = 0.0
-		num_a = 0.0
-		for elem in self.q:
-			num_h += elem.volume*(1.0-elem.aut_lev)
-			num_a += elem.volume*elem.aut_lev
-		return num_h, num_a
+		return self.q.volume*(1.0-self.q.aut_lev), self.q.volume*self.q.aut_lev
 		
 	def reset(self):
 		# reset preferences
@@ -453,7 +436,7 @@ class ParallelNetwork(gym.Env):
 			if self.start_from_equilibrium:
 				self.go_to_equilibrium(self.T_init)
 		self.step_count = 0
-		self.q.clear()
+		self.q = Vehs(0., 0.)
 		self.last_value = 0
 
 		return self._get_obs()

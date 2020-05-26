@@ -421,8 +421,14 @@ class GeneralNetwork(gym.Env):
         temp_self.update_network(dummy_routing_matrix) # so that f values will be calculated for cells
         temp_f = temp_self.f
         
-        latencies = np.array([self.cells[i].n / temp_f[i].sum() for i in range(self.num_cells)])
-        latencies[[np.isclose(self.cells[i].n, 0) for i in range(self.num_cells)]] = 0. # just in case some cells are empty and so f is 0
+        latencies = np.zeros(self.num_cells)
+        for i in range(self.num_cells):
+            if np.isclose(self.cells[i].n, 0): # just in case some cells are empty and so f is 0
+                latencies[i] = 0.
+            elif np.isclose(temp_f[i].sum(), 0):
+                latencies[i] = MANY_ITERS
+            else:
+                latencies[i] = self.cells[i].n / temp_f[i].sum()
         latencies = np.clip(latencies, [1./cell.vf for cell in self.cells], None) # cell latencies cannot be less than the free-flow latencies
         
         road_latencies = []
@@ -475,7 +481,7 @@ class GeneralNetwork(gym.Env):
         # vehicles in the queue. Maybe TODO: also include the autonomous vehicle demand
         dim_cells = 2*self.num_cells
         if not np.isclose(self.accident_param,0):
-            dim_lanes = np.sum([cell.num_lanes for cell in self.cells])
+            dim_lanes = np.sum([cell.num_lanes for cell in self.cells[1:]]) # exclude the queue for accidents
             low = np.concatenate((np.zeros((dim_cells,)), np.zeros((dim_lanes,))))
             high = np.concatenate((np.concatenate([[cell.nj/cell.cell_length]*2 for cell in self.cells]).reshape(-1), np.ones((dim_lanes,))*np.inf))
         else:

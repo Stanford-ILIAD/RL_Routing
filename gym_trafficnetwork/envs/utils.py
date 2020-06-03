@@ -1,4 +1,4 @@
-from gym_trafficnetwork.envs.road_network import Cell
+from gym_trafficnetwork.envs.parallel_network import Cell
 import numpy as np
 
 # For the simplest road type

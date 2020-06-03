@@ -2,17 +2,29 @@ import gym
 import gym_trafficnetwork
 import numpy as np
 
-env = gym.make('GeneralNetwork-v0')
-env.set('sim_duration', 6.0) # hours
+
+sim_duration = 6.0 # hours
+network_type = 'parallel' # type 'parallel' or 'general'
+P = 3 # number of paths (only for parallel -- the general network graph is defined inside its environment file)
+accident_param = 0.6 # expected number of accidents in 1 hour
+
+if network_type.lower() == 'parallel':
+    env = gym.make('ParallelNetwork-v0')
+elif network_type.lower() == 'general':
+    env = gym.make('GeneralNetwork-v0')
+else:
+    assert False, 'network_type is invalid.'
+
+env.set('sim_duration', sim_duration) # hours
 env.set('start_empty', False)
 env.set('start_from_equilibrium', False)
-#env.set('P', 3) # only for ParallelNetwork
+if network_type.lower() == 'parallel': env.set('P', P)
 env.set('init_learn_rate', 0.5)
 env.set('constant_learn_rate', True)
-env.set('accident_param', 0.0) # expected number of accidents in 1 hour
-env.set('demand', [0.96,1.44]) # human-driven and autonomous cars per second, respectively
-env.set('demand_noise_std', [0.096,0.144]) # human-driven and autonomous cars per second, respectively
-env.seed(0) # Use seed 1909 for the results shown in Fig. 6 with the above default parameters
+env.set('accident_param', accident_param) # expected number of accidents in 1 hour
+env.set('demand', [1.993974,2.990961]) # human-driven and autonomous cars per second, respectively
+env.set('demand_noise_std', [0.1993974,0.2990961]) # human-driven and autonomous cars per second, respectively
+env.seed(17)
 print('Environment is set!')
 
 

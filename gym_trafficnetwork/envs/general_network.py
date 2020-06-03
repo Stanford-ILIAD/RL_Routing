@@ -52,10 +52,11 @@ class Cell:
         n = self.n
         if not np.isclose(n,0):
             return self.state[1] / n
-        return 0
+        return 0.5 # so that we won't get divide by 0 errors
         
     @property
     def n(self):
+        assert np.all(-MACHINE_PRECISION <= self.state)
         return self.state.sum()
         
     def reset(self, num_paths):
@@ -339,13 +340,17 @@ class GeneralNetwork(gym.Env):
                         child_in_paths = [(child_id in path) for path in self.paths]
                         beta[:,i] = parent.mu[child_in_paths,:].sum(axis=0)
                     assert np.all([np.isclose(b.sum(), 1) for b in beta])
-                    beta_overall = (beta[0,:]*parent.state[0] + beta[1,:]*parent.state[1]) / parent.n
+                    if not np.isclose(parent.n, 0):
+                        beta_overall = (beta[0,:]*parent.state[0] + beta[1,:]*parent.state[1]) / parent.n
+                    else:
+                        beta_overall = (beta[0,:] + beta[1,:]) / 2.
                     temp_f = min(parent.S, np.min([self.cells[junction[1][i]].R / beta_overall[i] for i in range(len(junction[1]))]))
                     self.f[parent_id,:] += temp_f * np.array([1-parent.autonomy, parent.autonomy])
                     for i in range(len(junction[1])):
                         child_id = junction[1][i]
                         self.y[child_id,:] += beta[:,i] * self.f[parent_id,:]
                     assert np.all(np.isclose(self.f[parent_id,:], self.y[junction[1],:].sum(axis=0)))
+
             else: # merge
                 assert len(junction[1]) == 1
                 child_id = junction[1][0]
@@ -385,6 +390,7 @@ class GeneralNetwork(gym.Env):
                         self.cells[c_id].mu[downstream_path_ids,type] = 1. / len(downstream_path_ids)
                     else:
                         self.cells[c_id].mu[:,type] = mu_numerator[:,type] / mu_denominator[type]
+                self.cells[c_id].mu = np.clip(self.cells[c_id].mu, 0., 1.) # because of numerical issues
             
     def go_to_equilibrium(self, T, no_accidents=True):
         for _ in range(T):

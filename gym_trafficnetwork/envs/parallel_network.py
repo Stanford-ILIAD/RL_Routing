@@ -235,7 +235,7 @@ class ParallelNetwork(gym.Env):
 		self.max_step_size = int(self.sim_duration/T)
 		
 		if self.num_paths >= 2:
-			import gym_roadnetwork.envs.utils as utils
+			import gym_trafficnetwork.envs.utils as utils
 			road_set = []
 			# Do not use [Cell]*3, because we need deep copy
 			

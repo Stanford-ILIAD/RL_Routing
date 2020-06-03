@@ -4,39 +4,52 @@ import numpy as np
 import copy
 import scipy.optimize as opt
 
-mpc_receding_horizon = 5
+mpc_receding_horizon = 4
 mpc_planning_period = 1
+sample_count = 12
 
-env = gym.make('GeneralNetwork-v0')
-env.set('sim_duration', 6.0) # hours
+sim_duration = 6.0 # hours
+network_type = 'parallel' # type 'parallel' or 'general'
+P = 3 # number of paths (only for parallel -- the general network graph is defined inside its environment file)
+accident_param = 0.6 # expected number of accidents in 1 hour
+
+if network_type.lower() == 'parallel':
+    env = gym.make('ParallelNetwork-v0')
+elif network_type.lower() == 'general':
+    env = gym.make('GeneralNetwork-v0')
+else:
+    assert False, 'network_type is invalid.'
+
+env.set('sim_duration', sim_duration) # hours
 env.set('start_empty', False)
 env.set('start_from_equilibrium', False)
-#env.set('P', 3) # only for ParallelNetwork
+if network_type.lower() == 'parallel': env.set('P', P)
 env.set('init_learn_rate', 0.5)
 env.set('constant_learn_rate', True)
-env.set('accident_param', 0.6) # expected number of accidents in 1 hour
-env.set('demand', [1.0,1.5]) # human-driven and autonomous cars per second, respectively
-env.set('demand_noise_std', [0.1,0.15]) # human-driven and autonomous cars per second, respectively
-env.seed(1909) # Use seed 1909 for the results shown in Fig. 6 with the above default parameters
+env.set('accident_param', accident_param) # expected number of accidents in 1 hour
+env.set('demand', [1.993974,2.990961]) # human-driven and autonomous cars per second, respectively
+env.set('demand_noise_std', [0.1993974,0.2990961]) # human-driven and autonomous cars per second, respectively
+env.seed(17)
 print('Environment is set!')
 
-
 def mpc_func(action, *args):
-    copy_env = copy.deepcopy(args[0])
-    action_dim = copy_env.action_space.shape[0]
-    action = np.reshape(action, [-1,action_dim])
-    total_rew = 0.
-    for act in action:
-        _, r, d, _ = copy_env.step(act)
-        total_rew += r
-        if d: break
-    return -total_rew
+    arr = []
+    for _ in range(sample_count):
+        copy_env = copy.deepcopy(args[0])
+        action_dim = copy_env.action_space.shape[0]
+        action = np.reshape(action, [-1,action_dim])
+        total_rew = 0.
+        for act in action:
+            _, r, d, _ = copy_env.step(act)
+            total_rew += r
+            if d: break
+        arr.append(-total_rew)
+    return np.mean(arr)
 
 def mpc_policy(env):
     z = env.action_space.shape[0] * mpc_receding_horizon
     lb = np.array(list(env.action_space.low) * mpc_receding_horizon)
     ub = np.array(list(env.action_space.high) * mpc_receding_horizon)
-    #import pdb; pdb.set_trace()
     opt_res = opt.fmin_l_bfgs_b(mpc_func, x0=np.random.uniform(low=lb, high=ub), args=(env,), bounds=[(lbx, ubx) for lbx,ubx in zip(lb, ub)], approx_grad=True)
     opt_res = np.reshape(opt_res[0], [-1,env.action_space.shape[0]])
     return opt_res[:mpc_planning_period]

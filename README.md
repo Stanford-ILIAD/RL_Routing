@@ -1,7 +1,7 @@
-This code simulates a traffic network with P parallel roads, trains an RL policy for the routing control of autonomous cars, and tests RL and selfish policies.
+This code simulates a traffic network with mixed autonomy; trains an RL policy for the routing control of autonomous cars; and tests RL, selfish, greedy, and MPC policies.
 
-Companion code to IEEE TCNS submission:  
-Anonymous Authors. **"Learning how to Dynamically Route Autonomous Vehicles on Shared Roads"**. _Submitted to_ *IEEE Transactions on Control of Network Systems (TCNS)*, 2020.
+Companion code to TRC paper:  
+Daniel A. Lazar, Erdem Bıyık, Dorsa Sadigh, Ramtin Pedarsani. **"Learning how to Dynamically Route Autonomous Vehicles on Shared Roads"**. *Transportation Research Part C: Emerging Technologies*, , vol. 130, pp. 103258, 2021; doi: 10.1016/j.trc.2021.103258.
 
 ## Dependencies
 You need to have the following libraries with [Python3](http://www.python.org/downloads):
@@ -35,6 +35,12 @@ You can try (pre)trained policies by simply executing
 Similarly, you can see what happens when all vehicles are selfish by running
 ```python
 	python allselfish_policy.py
+```
+
+### Greedy Controller
+The greedy controller (based on \[20\] in the paper) can be run with
+```python
+	python greedy_optimization.py
 ```
 
 ### MPC-based Controller

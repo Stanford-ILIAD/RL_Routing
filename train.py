@@ -8,7 +8,7 @@ from mpi4py import MPI
 from baselines.bench import Monitor
 
 sim_duration = 5.0 # hours
-network_type = 'parallel' # type 'parallel' or 'general'
+network_type = 'multiOD' # type 'parallel' or 'general' or 'multiOD'
 P = 3 # number of paths (only for parallel -- the general network graph is defined inside its environment file)
 accident_param = 0.6 # expected number of accidents in 1 hour
 
@@ -51,6 +51,9 @@ def main():
     elif network_type.lower() == 'general':
         filename = 'GeneralNetworkAccidents' + str(1 if accident_param > 0 else 0)
         env = gym.make('GeneralNetwork-v0')
+    elif network_type.lower() == 'multiod':
+        filename = 'GeneralNetworkMultiODAccidents' + str(1 if accident_param > 0 else 0)
+        env = gym.make('GeneralNetworkMultiOD-v0')
     else:
         assert False, 'network_type is invalid.'
         
@@ -63,8 +66,8 @@ def main():
     env.set('init_learn_rate', 0.5)
     env.set('constant_learn_rate', True)
     env.set('accident_param', accident_param) # expected number of accidents in 1 hour
-    env.set('demand', [1.993974,2.990961]) # human-driven and autonomous cars per second, respectively
-    env.set('demand_noise_std', [0.1993974,0.2990961]) # human-driven and autonomous cars per second, respectively
+    env.set('demand', [[[0.346,0.519],[0.346,0.519]],[[0.346,0.519],[0.346,0.519]]]) # human-driven and autonomous cars per second, respectively
+    env.set('demand_noise_std', [[[0.0346,0.0519],[0.0346,0.0519]],[[0.0346,0.0519],[0.0346,0.0519]]]) # human-driven and autonomous cars per second, respectively
     
     # train the model
     train(env, seed=None, model_path=model_path)

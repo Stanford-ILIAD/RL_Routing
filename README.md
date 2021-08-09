@@ -1,7 +1,7 @@
 This code simulates a traffic network with mixed autonomy; trains an RL policy for the routing control of autonomous cars; and tests RL, selfish, greedy, and MPC policies.
 
 Companion code to TRC paper:  
-Daniel A. Lazar, Erdem Bıyık, Dorsa Sadigh, Ramtin Pedarsani. **"Learning how to Dynamically Route Autonomous Vehicles on Shared Roads"**. *Transportation Research Part C: Emerging Technologies*, , vol. 130, pp. 103258, 2021; doi: 10.1016/j.trc.2021.103258.
+Daniel A. Lazar, Erdem Bıyık, Dorsa Sadigh, Ramtin Pedarsani. **"Learning how to Dynamically Route Autonomous Vehicles on Shared Roads"**. *Transportation Research Part C: Emerging Technologies*, vol. 130, pp. 103258, 2021; doi: 10.1016/j.trc.2021.103258.
 
 ## Dependencies
 You need to have the following libraries with [Python3](http://www.python.org/downloads):
